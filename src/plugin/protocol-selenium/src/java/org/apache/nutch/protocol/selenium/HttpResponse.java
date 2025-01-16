@@ -22,6 +22,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.PushbackInputStream;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.URL;
@@ -357,9 +359,39 @@ public class HttpResponse implements Response {
    * -------------------------
    */
 
-  private void readPlainContent(URL url) throws IOException {
-    String page = HttpWebClient.getHtmlPage(url.toString(), conf);
+  private void redirectToExternalScript(String command) throws IOException {
+    Http.LOG.info("redirecting selenium job to: "+command);
+    ProcessBuilder processBuilder = new ProcessBuilder(command.split(" "));
+    Process process = processBuilder.start();
 
+    StringBuilder output = new StringBuilder();
+    try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+      String line;
+      while ((line = reader.readLine()) != null) {
+        output.append(line).append("\n");
+      }
+    }
+
+    int exitCode;
+    try {
+        exitCode = process.waitFor();
+    } catch (InterruptedException error) {
+        throw new IOException("External selenium script interrupted: " + error.toString());
+    }
+    if (exitCode != 0) {
+      throw new IOException("External selenium script failed with exit code " + exitCode);
+    }
+    content = output.toString().trim().getBytes("UTF-8");
+  }
+
+  private void readPlainContent(URL url) throws IOException {
+    String externalCommand = conf.get("selenium.x_brightdata.external_script");
+    if (!externalCommand.isEmpty()) {
+      redirectToExternalScript(externalCommand.replace("{URL}", url.toString()));
+      return;
+    }
+
+    String page = HttpWebClient.getHtmlPage(url.toString(), conf);
     content = page.getBytes("UTF-8");
   }
 
