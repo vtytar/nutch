@@ -32,6 +32,7 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import javax.net.ssl.SSLContext;
@@ -362,6 +363,10 @@ public class HttpResponse implements Response {
   private void redirectToExternalScript(String command) throws IOException {
     Http.LOG.info("redirecting selenium job to: "+command);
     ProcessBuilder processBuilder = new ProcessBuilder(command.split(" "));
+    Map<String, String> env = System.getenv();
+    for (Map.Entry<String, String> entry : env.entrySet()) {
+        processBuilder.environment().put(entry.getKey(), entry.getValue());
+    }
     Process process = processBuilder.start();
 
     StringBuilder output = new StringBuilder();
